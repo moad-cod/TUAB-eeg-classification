@@ -1,0 +1,230 @@
+# EEG Abnormality Detection and Spatial Explainability
+
+Kaggle-notebook workflow for the working paper **“Reliability of Spatial
+Explanations in Deep Learning-Based EEG Abnormality Detection: A Cross-Dataset
+Study.”**
+
+This project studies more than classification accuracy. It asks which EEG
+properties and scalp regions influence model decisions, whether explanation
+methods agree, and whether predictions and explanations generalize to an
+independent clinical dataset.
+
+## Study design
+
+- **Development data:** TUH Abnormal EEG Corpus (TUAB), preserving its official
+  train/evaluation partitions.
+- **External validation:** NMT Scalp EEG dataset.
+- **Task:** binary normal-versus-abnormal recording classification.
+- **Evaluation unit:** recording; aggregate epoch probabilities before scoring.
+- **Scope:** an abnormal recording prediction is not a patient diagnosis and
+  does not identify a neurological disorder.
+
+```text
+TUAB audit and shared preprocessing
+              |
+       +------+------+
+       |             |
+ Engineered       EEG epochs
+ features            |
+       |       EEGNet / ShallowConvNet / Deep4Net
+ SVM / RF / XGBoost  |
+       +------+------+
+              |
+  recording-level evaluation
+              |
+ spatial attribution and reliability
+              |
+ frozen external evaluation on NMT
+```
+
+## Fixed experimental protocol
+
+| Component | Protocol |
+|---|---|
+| Common montage | 19 scalp EEG channels |
+| Sampling rate | 200 Hz after resampling |
+| Filtering | 0.5–40 Hz band-pass |
+| Epochs | 8 seconds, non-overlapping (1,600 samples) |
+| Splitting | Patient-independent; preserve official TUAB split |
+| Seeds | 42 initially; repeat key experiments with multiple seeds |
+| Output | Aggregate epoch probabilities to recording level |
+| Primary metric | ROC-AUC |
+| Secondary metrics | Balanced accuracy, sensitivity, specificity, F1, calibration |
+| Uncertainty | Patient-clustered confidence intervals |
+
+Preprocessing must be harmonized across datasets. Fit every normalizer,
+imputer, feature selector, calibration model, threshold, or other learned step
+using training data only. Do not use held-out TUAB or NMT results to select
+features, tune models, or revise the protocol.
+
+## Experiments
+
+### 1. Dataset audit, exploration, and features
+
+Verify the TUAB version, file integrity, labels, patient/session IDs, official
+partitions, channel names, montages, sampling rates, durations, and class
+balance. Extract:
+
+- statistical features: standard deviation, variance, skewness, kurtosis;
+- temporal features: Hjorth mobility and complexity, line length;
+- frequency features: Welch PSD and absolute/relative delta, theta, alpha,
+  beta, and gamma power;
+- spatial features: channel-level and regional summaries.
+
+Deliverables: audit tables, a documented feature matrix, channel-level
+distributions, and training-only exploratory comparisons.
+
+### 2. Traditional ML baselines
+
+Train SVM, Random Forest, and XGBoost on engineered features. Report
+recording-level metrics, confidence intervals, calibration, feature importance,
+and feature-group ablations. These provide interpretable and computationally
+efficient baselines before introducing CNNs.
+
+### 3. Deep-learning classification
+
+Train EEGNet, ShallowConvNet, and Deep4Net directly on preprocessed
+`19 x 1600` epochs. Use the same recording splits, labels, and test population
+as the ML baselines. Compare predictive performance, parameter count, runtime,
+and stability across seeds.
+
+### 4. Spatial attribution and reliability
+
+Compare Integrated Gradients, DeepLIFT, and regional occlusion. Aggregate
+channel attribution into frontal, central, temporal, parietal, and occipital
+groups while accounting for unequal electrode counts. Evaluate:
+
+- agreement using Spearman rank correlation and top-region overlap;
+- stability across seeds, folds, and plausible perturbations;
+- faithfulness through controlled regional perturbation;
+- regional validity against expert annotations, if available.
+
+These outputs describe **model-important regions**, not verified pathology
+localization unless regional ground truth is available.
+
+### 5. Cross-dataset generalization
+
+Freeze TUAB-trained models before evaluating them on NMT. Report external
+ROC-AUC, balanced accuracy, calibration, regional-attribution shifts, and
+clinically meaningful stratified analyses. Document dataset and case-mix
+differences when interpreting explanation changes.
+
+## Kaggle notebook workflow
+
+This repository intentionally uses notebooks rather than a Python package or
+command-line scripts. Recommended order:
+
+```text
+notebooks/
+  00_tuab_audit.ipynb
+  01_preprocessing_and_features.ipynb
+  02_ml_baselines.ipynb
+  03_cnn_baselines.ipynb
+  04_spatial_explainability.ipynb
+  05_nmt_external_validation.ipynb
+```
+
+The notebooks may be created incrementally; these names define the intended
+order and artifact handoff.
+
+### Kaggle setup
+
+1. Create a Kaggle notebook and attach TUAB as input. Attach NMT only when the
+   external-validation notebook is ready.
+2. Enable a GPU for CNN and attribution notebooks. Auditing, features, and most
+   ML baselines can run on CPU.
+3. Inspect the real mounted dataset names:
+
+   ```python
+   from pathlib import Path
+
+   KAGGLE_INPUT = Path("/kaggle/input")
+   KAGGLE_WORKING = Path("/kaggle/working")
+   print(*KAGGLE_INPUT.iterdir(), sep="\n")
+   ```
+
+4. Define paths once near the top of each notebook, replacing these example
+   slugs with the mounted names printed above:
+
+   ```python
+   TUAB_ROOT = KAGGLE_INPUT / "tuab-dataset"
+   NMT_ROOT = KAGGLE_INPUT / "nmt-scalp-eeg-dataset"
+   OUTPUT_ROOT = KAGGLE_WORKING / "eeg-abnormality"
+   OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+   ```
+
+5. Install only missing packages in the current Kaggle image:
+
+   ```python
+   %pip install -q mne-bids pyedflib braindecode captum xgboost
+   ```
+
+   Restart the session if Kaggle requests it after installation.
+
+Kaggle inputs are read-only. Save manifests, features, checkpoints, metrics,
+and figures under `/kaggle/working/eeg-abnormality/`, then use **Save Version**
+to persist them. Publish expensive intermediate outputs as private Kaggle
+datasets and attach them to the next notebook rather than recomputing them.
+
+TUAB is large. Prefer an already-extracted Kaggle dataset, or extract only the
+subset needed for the current experiment while monitoring the working quota.
+
+## Data and artifact contracts
+
+| Artifact | Minimum contents |
+|---|---|
+| Audit manifest | path, dataset, split, label, patient/session IDs, channels, sampling rate, duration |
+| Epoch manifest | recording/patient IDs, epoch index/time, label, preprocessing version |
+| Feature table | identifiers, split, label, named feature columns |
+| Model bundle | model, fitted preprocessing, channel order, hyperparameters, seed |
+| Predictions | dataset, split, patient/recording/epoch IDs, label, probability |
+| Attribution table | model, method, seed, recording/epoch, channel/region, attribution |
+| Metrics | estimates, confidence intervals, aggregation rule, threshold |
+
+Use Parquet for tables and PyTorch/joblib formats for models. Never overwrite
+final test predictions with exploratory runs.
+
+## Reproducibility checklist
+
+- Record Kaggle notebook and dataset versions, packages, seed, accelerator, and
+  git commit when available.
+- Assert the exact 19-channel order before feature extraction or inference.
+- Ensure patient IDs never cross train/validation/test boundaries.
+- Fit all learned preprocessing only on training data.
+- Aggregate epochs to recordings before primary metric calculation.
+- Keep the official TUAB evaluation partition untouched until final analysis.
+- Freeze models and analysis choices before opening NMT results.
+- Report failed runs and missing/corrupt recordings instead of silently
+  excluding them.
+
+## Repository layout
+
+```text
+.
+├── notebooks/          Kaggle notebooks: the executable research workflow
+├── configs/            Optional exported experiment settings
+├── reports/
+│   ├── figures/        Publication-ready plots
+│   └── results/        Exported metrics and summaries
+├── requirements.txt    Complete notebook dependencies
+└── README.md
+```
+
+Raw clinical data and large artifacts must remain outside git. Follow each
+dataset's access terms and never publish identifiable or restricted data in
+notebook outputs.
+
+## Requirements
+
+Kaggle preinstalls many scientific Python packages. The complete dependency
+list is in [`requirements.txt`](requirements.txt) for reproducibility, while
+the shorter `%pip install` command above avoids unnecessary upgrades in Kaggle.
+
+## Citation and license
+
+Dataset licenses and citation requirements apply independently of this
+repository's code license. Cite the TUAB corpus documentation and the TUH EEG
+Corpus paper referenced by its provider. Add the official NMT citation supplied
+with the exact downloaded release to the manuscript and final notebooks.
+
+Project code and documentation are distributed under [LICENSE](LICENSE).
