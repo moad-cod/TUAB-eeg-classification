@@ -1,0 +1,28 @@
+# Core analysis and artifact storage
+numpy
+pandas
+scipy
+pyarrow
+joblib
+tqdm
+
+# EEG and EDF/BIDS I/O
+mne
+mne-bids
+pyedflib
+
+# Classical machine learning and statistics
+scikit-learn
+xgboost
+statsmodels
+
+# Deep learning and EEG architectures
+torch
+braindecode
+
+# Explainability
+captum
+
+# Plotting
+matplotlib
+seaborn
