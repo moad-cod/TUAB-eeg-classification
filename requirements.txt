@@ -6,6 +6,10 @@ pyarrow
 joblib
 tqdm
 
+# Local Jupyter/VS Code notebook kernel
+ipython
+ipykernel
+
 # EEG and EDF/BIDS I/O
 mne
 mne-bids
@@ -26,6 +30,3 @@ captum
 # Plotting
 matplotlib
 seaborn
-
-
-pyarrow
