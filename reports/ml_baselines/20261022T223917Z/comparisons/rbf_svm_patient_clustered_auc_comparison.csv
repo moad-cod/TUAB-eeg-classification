@@ -1,0 +1,4 @@
+model,comparison,roc_auc_or_difference,ci_95_low,ci_95_high,recordings,patients,bootstrap_replicates,bootstrap_unit
+RBF SVM,FE-All,0.907936,0.880153,0.932438,538,410,2000,patient
+RBF SVM,FE-QC,0.918330,0.892061,0.941669,538,410,2000,patient
+RBF SVM,FE-QC minus FE-All,0.010394,-0.004737,0.025865,538,410,2000,paired patient
