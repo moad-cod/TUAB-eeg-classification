@@ -1,0 +1,13 @@
+{
+  "experiment": "E1",
+  "baseline": "E1-00",
+  "evaluation_unit": "recording",
+  "grouping_unit": "patient",
+  "primary_metric": "roc_auc",
+  "outer_folds": 5,
+  "inner_folds": 5,
+  "random_state": 42,
+  "feature_count": 1152,
+  "mixed_label_patients": 41,
+  "final_evaluation_used": false
+}
